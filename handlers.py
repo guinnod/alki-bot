@@ -1,6 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
-from api import get_colors, get_sizes, get_order_number
+from api import get_colors, get_sizes, get_order_number, get_order_status
 
 PRODUCT_ID, COLOR, SIZE, ADDRESS, ORDER_ID, CONTACTS = range(6)
 
@@ -11,6 +11,7 @@ async def ask_for_product_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
         [cancel_button]
     ]
     reply_markup = InlineKeyboardMarkup(cancel_keyboard)
+
     await update.message.reply_text("Напишите номер товара.", reply_markup=reply_markup)
     return PRODUCT_ID
 
@@ -19,22 +20,20 @@ async def ask_for_color(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     product_id = update.message.text
     context.user_data['product_id'] = product_id
 
-    colors = get_colors(f"http://localhost:5000/?id={product_id}")
+    data = get_colors(product_id)
 
-    if not colors:
-        await update.message.reply_text(f"Неправильный номер! Напишите правильно номер товара.")
+    if not data:
+        await update.message.reply_text(f"Неправильный номер! Напишите правильный номер товара.")
         return PRODUCT_ID
 
+    color_keyboard = [[InlineKeyboardButton(color, callback_data=f'color_{color.lower()}') for color in data['colors']]]
+
     cancel_button = InlineKeyboardButton("Отмена", callback_data='cancel_order')
-    color_keyboard = [
-        [InlineKeyboardButton("Red", callback_data='color_red')],
-        [InlineKeyboardButton("Black", callback_data='color_black')],
-        [InlineKeyboardButton("Blue", callback_data='color_blue')],
-        [cancel_button]
-    ]
+    color_keyboard.append([cancel_button])
+
     reply_markup = InlineKeyboardMarkup(color_keyboard)
 
-    await update.message.reply_text(f"Цена товара {10000} KZT. Выберите цвет товара :",
+    await update.message.reply_text(f"Цена товара {data['price']} KZT. \nВыберите цвет товара :",
                                     reply_markup=reply_markup)
     return COLOR
 
@@ -44,19 +43,20 @@ async def ask_for_size(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     color = query.data.split('_')[-1]
     context.user_data['color'] = color
 
-    sizes = get_sizes(f"http://localhost:5000/?id={context.user_data['product_id']}&color={color}")
-    if not sizes:
-        await update.message.reply_text(f"На данный момент товар № {context.user_data['product_id']} нет в наличии")
+    data = get_sizes(product_id=context.user_data['product_id'], color=color)
+
+    if not data:
+        await update.callback_query.message.reply_text(
+            f"На данный момент товар № {context.user_data['product_id']} нет в наличии")
         return ConversationHandler.END
 
+    size_keyboard = []
+    for size in data['sizes']:
+        size_keyboard.append([InlineKeyboardButton(size, callback_data=f'size_{size.upper()}')])
+
     cancel_button = InlineKeyboardButton("Отмена", callback_data='cancel_order')
-    size_keyboard = [
-        [InlineKeyboardButton("S", callback_data='size_s')],
-        [InlineKeyboardButton("M", callback_data='size_m')],
-        [InlineKeyboardButton("L", callback_data='size_l')],
-        [InlineKeyboardButton("XL", callback_data='size_xl')],
-        [cancel_button]
-    ]
+    size_keyboard.append([cancel_button])
+
     reply_markup = InlineKeyboardMarkup(size_keyboard)
 
     await update.callback_query.message.reply_text(
@@ -75,7 +75,8 @@ async def ask_for_address(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     ]
     reply_markup = InlineKeyboardMarkup(cancel_keyboard)
 
-    await update.callback_query.message.reply_text("Напишите адрес доставки. \nМожете отправить ссылку на 2GIS", reply_markup=reply_markup)
+    await update.callback_query.message.reply_text("Напишите адрес доставки. \nМожете отправить ссылку на 2GIS",
+                                                   reply_markup=reply_markup)
     return ADDRESS
 
 
@@ -88,21 +89,29 @@ async def ask_for_contacts(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     ]
     reply_markup = InlineKeyboardMarkup(cancel_keyboard)
 
-    await update.message.reply_text("Напишите ваш номер телефона. \n",
-                                                   reply_markup=reply_markup)
+    await update.message.reply_text("Напишите ваш номер телефона.",
+                                    reply_markup=reply_markup)
     return CONTACTS
 
 
 async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['contacts'] = update.message.text
-    order_number = get_order_number('http://localhost:5000/')
+
+    product_id = context.user_data['product_id']
+    color = context.user_data['color']
+    size = context.user_data['size']
+    address = context.user_data['address']
+    contacts = context.user_data['contacts']
+
+    order_number = get_order_number(product_id, color, size, address, contacts)
+
     if not order_number:
         await update.message.reply_text(
-            f"Продукт № {context.user_data['product_id']} на данный момент нет в наличии. Обратитесь чуть позже")
+            f"Продукт № {product_id} на данный момент нет в наличии. Обратитесь чуть позже")
         return ConversationHandler.END
 
     await update.message.reply_text(
-        f"Ваш заказ создан. \nПродукт № {context.user_data['product_id']}, размер: {context.user_data['size']}, цвет: {context.user_data['color']},\nадрес доставки: {context.user_data['address']} \nНапишите номер заказа сообщением в переводе\nНомер заказа: {order_number} \nНомер для перевода денег: +7 777 247 53 70, Абзал С.\nМожете связаться с менеджером позвонив на +7 777 147 85 23")
+        f"Ваш заказ создан. \nПродукт № {product_id}, размер: {size}, цвет: {color},\nадрес доставки: {address} \nНапишите номер заказа сообщением в переводе\nНомер заказа: {order_number} \nНомер для перевода денег: +7 777 247 53 70, Абзал С.\nСвязаться с менеджером можно \nпо телефону +7 777 147 85 23.")
     return ConversationHandler.END
 
 
@@ -118,14 +127,16 @@ async def ask_for_order_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 async def send_order_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['order_id'] = update.message.text
-    order_number = get_order_number('')
-    if not order_number:
+    order_id = context.user_data['order_id']
+
+    data = get_order_status(order_id)
+
+    if not data:
         await update.message.reply_text(
             f"Неправильный номер заказа!")
         return ConversationHandler.END
-    await update.message.reply_text(
-        f"Ваш заказ № {context.user_data['order_id']} в ожидании оплаты. \nПродукт № {context.user_data['product_id']}, размер: {context.user_data['size']}, цвет: {context.user_data['color']},\nадрес доставки: {context.user_data['address']}")
 
+    await update.message.reply_text(data)
     return ConversationHandler.END
 
 

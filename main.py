@@ -19,14 +19,14 @@ def main():
             SIZE: [CallbackQueryHandler(ask_for_address, pattern='^size_.*')],
             ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_for_contacts)],
             CONTACTS: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm_order)]
-        }, fallbacks=[CallbackQueryHandler(cancel, pattern='^cancel_order$')]
+        }, fallbacks=[CallbackQueryHandler(cancel, pattern='^cancel_order$')], allow_reentry=True
     )
 
     check_conv_handler = ConversationHandler(
         entry_points=[CommandHandler('check', ask_for_order_id)],
         states={
             ORDER_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, send_order_status)]
-        }, fallbacks=[CallbackQueryHandler(cancel, pattern='^cancel_check$')]
+        }, fallbacks=[CallbackQueryHandler(cancel, pattern='^cancel_check$')], allow_reentry=True
     )
 
     application.add_handler(order_conv_handler)
