@@ -2,19 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from api import get_colors_from_api
 
-PRODUCT_ID, COLOR, SIZE, ADDRESS, ORDER_ID, COMMAND_ID = range(6)
-
-
-async def ask_for_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    cancel_button = InlineKeyboardButton("Cancel", callback_data='cancel')
-    commands_keyboard = [
-        [InlineKeyboardButton("Make a new order", callback_data='order')],
-        [InlineKeyboardButton("Check my order status", callback_data='check')], [cancel_button],
-    ]
-    reply_markup = InlineKeyboardMarkup(commands_keyboard)
-
-    await update.message.reply_text("Choose the command.", reply_markup=reply_markup)
-    return COMMAND_ID
+PRODUCT_ID, COLOR, SIZE, ADDRESS, ORDER_ID = range(5)
 
 
 async def ask_for_product_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -23,7 +11,7 @@ async def ask_for_product_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
         [cancel_button]
     ]
     reply_markup = InlineKeyboardMarkup(cancel_keyboard)
-    await update.callback_query.message.reply_text("Send me the ID of the product", reply_markup=reply_markup)
+    await update.message.reply_text("Send me the ID of the product", reply_markup=reply_markup)
     return PRODUCT_ID
 
 
@@ -82,13 +70,13 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return ConversationHandler.END
 
 
-async def check_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def ask_for_order_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     cancel_button = InlineKeyboardButton("Cancel", callback_data='cancel_check')
     cancel_keyboard = [
         [cancel_button]
     ]
     reply_markup = InlineKeyboardMarkup(cancel_keyboard)
-    await update.callback_query.message.reply_text("Send your order id.", reply_markup=reply_markup)
+    await update.message.reply_text("Send your order id.", reply_markup=reply_markup)
     return ORDER_ID
 
 

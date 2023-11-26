@@ -12,7 +12,7 @@ def main():
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     order_conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(ask_for_product_id, pattern='^order$')],
+        entry_points=[CommandHandler('order', ask_for_product_id)],
         states={
             PRODUCT_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_for_color)],
             COLOR: [CallbackQueryHandler(ask_for_size, pattern='^color_.*')],
@@ -22,21 +22,15 @@ def main():
     )
 
     check_conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(check_order, pattern='^check$')],
+        entry_points=[CommandHandler('check', ask_for_order_id)],
         states={
             ORDER_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, send_order_status)]
         }, fallbacks=[CallbackQueryHandler(cancel, pattern='^cancel_check$')]
     )
 
-    main_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', ask_for_command)],
-        states={
-            COMMAND_ID: [order_conv_handler, check_conv_handler]
-        },
-        fallbacks=[CallbackQueryHandler(cancel, pattern='^cancel$')]
-    )
+    application.add_handler(order_conv_handler)
+    application.add_handler(check_conv_handler)
 
-    application.add_handler(main_conv_handler)
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
