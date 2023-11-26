@@ -17,7 +17,8 @@ def main():
             PRODUCT_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_for_color)],
             COLOR: [CallbackQueryHandler(ask_for_size, pattern='^color_.*')],
             SIZE: [CallbackQueryHandler(ask_for_address, pattern='^size_.*')],
-            ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm_order)]
+            ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_for_contacts)],
+            CONTACTS: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm_order)]
         }, fallbacks=[CallbackQueryHandler(cancel, pattern='^cancel_order$')]
     )
 
