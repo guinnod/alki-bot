@@ -1,10 +1,25 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from api import get_colors, get_sizes, get_order_number, get_order_status
+from functools import wraps
 
 PRODUCT_ID, COLOR, SIZE, ADDRESS, ORDER_ID, CONTACTS = range(6)
 
 
+def error_handler(func):
+    @wraps(func)
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+        try:
+            return await func(update, context, *args, **kwargs)
+        except Exception as e:
+            print(f"Error in {func.__name__}: {str(e)}")
+            await update.message.reply_text("An error occurred. Please try again.")
+            return ConversationHandler.END
+
+    return wrapper
+
+
+@error_handler
 async def ask_for_product_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     cancel_button = InlineKeyboardButton("Отмена", callback_data='cancel_order')
     cancel_keyboard = [
@@ -16,6 +31,7 @@ async def ask_for_product_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return PRODUCT_ID
 
 
+@error_handler
 async def ask_for_color(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     product_id = update.message.text
     context.user_data['product_id'] = product_id
@@ -38,6 +54,7 @@ async def ask_for_color(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return COLOR
 
 
+@error_handler
 async def ask_for_size(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     color = query.data.split('_')[-1]
@@ -64,6 +81,7 @@ async def ask_for_size(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     return SIZE
 
 
+@error_handler
 async def ask_for_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     size = query.data.split('_')[-1]
@@ -80,6 +98,7 @@ async def ask_for_address(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     return ADDRESS
 
 
+@error_handler
 async def ask_for_contacts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['address'] = update.message.text
 
@@ -94,6 +113,7 @@ async def ask_for_contacts(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     return CONTACTS
 
 
+@error_handler
 async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['contacts'] = update.message.text
 
@@ -115,6 +135,7 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return ConversationHandler.END
 
 
+@error_handler
 async def ask_for_order_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     cancel_button = InlineKeyboardButton("Отмена", callback_data='cancel_check')
     cancel_keyboard = [
@@ -125,6 +146,7 @@ async def ask_for_order_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     return ORDER_ID
 
 
+@error_handler
 async def send_order_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['order_id'] = update.message.text
     order_id = context.user_data['order_id']
@@ -140,6 +162,7 @@ async def send_order_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+@error_handler
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     message = update.message or update.callback_query.message
     if message:
